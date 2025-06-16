@@ -1,5 +1,5 @@
 """Source code from https://github.com/vahuynh/dynGENIE3"""
-
+import numpy as np
 from sklearn.tree import BaseDecisionTree
 from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
 from numpy import *
@@ -290,7 +290,7 @@ def dynGENIE3(TS_data,time_points,alpha='from_data',SS_data=None,gene_names=None
     treeEstimators: list of tree models, where the i-th model is the model predicting the expression of the i-th gene. treeEstimators is an empty list if save_models is set to False.
 
     '''
-
+    nthreads=1
     time_start = time.time()
 
     # Check input arguments
@@ -409,6 +409,7 @@ def dynGENIE3(TS_data,time_points,alpha='from_data',SS_data=None,gene_names=None
         alphas = zeros(ngenes) + float(alpha)    
     else:
         alphas = [float(a) for a in alpha]
+    alphas = np.nan_to_num(alphas, nan=0)
 
                 
     print('Tree method: ' + str(tree_method))

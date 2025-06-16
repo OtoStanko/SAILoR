@@ -10,12 +10,12 @@
 
 #THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from dynGENIE3 import *
+from SAILoR.dynGENIE3 import *
 from deap import creator, base, tools, algorithms
 #from inferelator import inferelator_workflow 
 from sklearn.cluster import KMeans  
-from qm import QuineMcCluskey  
-from triadic_census import count_triads, count_local_triads    
+from SAILoR.qm import QuineMcCluskey
+from SAILoR.triadic_census import count_triads, count_local_triads
 
 import ast
 import argparse  
@@ -79,7 +79,7 @@ def getTruthTable(bexpr, regulators, geneNames):
 
     expr = bexpr[bexpr.find("= ")+1:]   
 
-    if len(regulators != 0): 
+    if len(regulators != 0):
         for row in rowValues:  
             #set regulators value 
             regVals = getBinaryFromDecimal(row, numReg)    
@@ -483,8 +483,9 @@ class Network:
                             geneNames[gene_ind] = g2 
                             gene_ind = gene_ind + 1  
  
-            except:
-                print(f"Error while reading {file}!")  
+            except e:
+                print(e)
+                print(f"Error while reading {file}!")
             
         nNodes = len(geneIndices)  
 
@@ -534,7 +535,7 @@ class GeneticSolver:
 
         self.exactNetworksIndices = exactNetworksIndices 
         
-        self.nGen = nGen        
+        self.nGen = 1
         self.nSub = nSub    
         self.cxP = cxP    
         self.mutP = mutP                       
@@ -881,12 +882,16 @@ class GeneticSolver:
         add_edge = True
         edge_diff = 1
         rnd = np.random.rand()  
-        if rnd < 0.5:
+        if rnd < 0.1:
             add_edge = False
             edge_diff = -1      
 
-        indices = np.where(adjM == int(not add_edge))  
-        ind_num = np.random.choice(len(indices[0]))            
+        indices = np.where(adjM == int(not add_edge))
+        if len(indices[0]) == 0:
+            add_edge = not add_edge
+            edge_diff = -1 * edge_diff
+            indices = np.where(adjM == int(not add_edge))
+        ind_num = np.random.choice( len( indices[0] ) )
         row = indices[0][ind_num]  
         column = indices[1][ind_num]   
 
@@ -1278,9 +1283,13 @@ class ContextSpecificDecoder:
 
         start = time.time() 
         iterableList = [(bNetwork, bin_df, experiments_df, self.geneNames, self.experiments, index) for index, bNetwork in enumerate(bNetworks)]    
-        pool = multiprocessing.Pool(4) #(multiprocessing.cpu_count())     
-        accuracies = pool.starmap(getDynamicAccuracy, iterableList)   
-        pool.close()       
+        #pool = multiprocessing.Pool(4) #(multiprocessing.cpu_count())
+        #accuracies = pool.starmap(getDynamicAccuracy, iterableList)
+        #pool.close()
+        accuracies = []
+        for index, bNetwork in enumerate(bNetworks):
+            acc, index = getDynamicAccuracy(bNetwork, bin_df, experiments_df, self.geneNames, self.experiments, index)
+            accuracies.append((acc, index))
 
         bestAcc, bestInd = accuracies[0]  
         bestDist = distances[bestInd]       
@@ -1368,9 +1377,13 @@ class ContextSpecificDecoder:
         print("Inferring Boolean networks!")   
         start = time.time()
         iterableList = [(subject.adjM, nNodes, bin_df, shift_bin_df, experiments_df, self.geneNames, self.qm, self.experiments) for subject in subjects]        
-        pool = multiprocessing.Pool(4) #(multiprocessing.cpu_count() )     
-        bNetworks = pool.starmap(inferBooleanNetwork, iterableList)  
-        pool.close()         
+        #pool = multiprocessing.Pool(1) #(multiprocessing.cpu_count() )
+        bNetworks = []
+        for subject in subjects:
+            bn = inferBooleanNetwork(subject.adjM, nNodes, bin_df, shift_bin_df, experiments_df, self.geneNames, self.qm, self.experiments)
+            bNetworks.append(bn)
+        #bNetworks = pool.starmap(inferBooleanNetwork, iterableList)
+        #pool.close()
         end = time.time()      
         elapsed = end - start  
         print(str(elapsed) + " seconds elapsed!")       
@@ -1534,8 +1547,8 @@ class ContextSpecificDecoder:
                 temp_geneIndices = geneIndices
                 temp_geneNames = geneNames
             else:
-                temp_geneIndices = None
-                temp_geneNames = None  
+                temp_geneIndices = None  # None
+                temp_geneNames = None  # None
 
             reference_net = Network(refFile = refPath, geneIndices = temp_geneIndices, geneNames = temp_geneNames)  
             reference_net.setMaxRegs(maxRegs)  
